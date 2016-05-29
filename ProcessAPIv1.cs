@@ -4,20 +4,20 @@ using System.Runtime.InteropServices;
 
 namespace XenoCoreZ_Trainer_API
 {
-    internal class ProcessAPIv1
+    internal class ProcessApIv1
     {
         [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Auto)]
         private static extern bool CreateProcess(
             string lpApplicationName,
             string lpCommandLine,
-            ref SECURITY_ATTRIBUTES lpProcessAttributes,
-            ref SECURITY_ATTRIBUTES lpThreadAttributes,
+            ref SecurityAttributes lpProcessAttributes,
+            ref SecurityAttributes lpThreadAttributes,
             bool bInheritHandles,
             uint dwCreationFlags,
             IntPtr lpEnvironment,
             string lpCurrentDirectory,
-            [In] ref STARTUPINFO lpStartupInfo,
-            out PROCESS_INFORMATION lpProcessInformation);
+            [In] ref Startupinfo lpStartupInfo,
+            out ProcessInformation lpProcessInformation);
 
         [DllImport("kernel32.dll", SetLastError = true)]
         private static extern int SuspendThread(IntPtr hThread);
@@ -31,41 +31,39 @@ namespace XenoCoreZ_Trainer_API
         [DllImport("kernel32.dll", SetLastError = true)]
         private static extern bool CloseHandle(IntPtr hHandle);
 
-        public static IntPtr CreateNewProcess(string ExePath, string CMDLine)
+        public static IntPtr CreateNewProcess(string exePath, string cmdLine)
         {
-            bool retValue;
-            var Application = ExePath;
-            var CommandLine = CMDLine;
-            var pInfo = new PROCESS_INFORMATION();
-            var sInfo = new STARTUPINFO();
-            var pSec = new SECURITY_ATTRIBUTES();
-            var tSec = new SECURITY_ATTRIBUTES();
+            var application = exePath;
+            var commandLine = cmdLine;
+            ProcessInformation pInfo;
+            var sInfo = new Startupinfo();
+            var pSec = new SecurityAttributes();
+            var tSec = new SecurityAttributes();
             pSec.nLength = Marshal.SizeOf(pSec);
             tSec.nLength = Marshal.SizeOf(tSec);
 
             //Open Notepad
-            retValue = CreateProcess(Application, CommandLine,
-                ref pSec, ref tSec, false, (uint) CreateProcessFlags.NORMAL_PRIORITY_CLASS,
+            CreateProcess(application, commandLine,
+                ref pSec, ref tSec, false, (uint)CreateProcessFlags.NormalPriorityClass,
                 IntPtr.Zero, null, ref sInfo, out pInfo);
 
             return pInfo.hProcess;
         }
 
-        public static IntPtr CreateNewProcessSuspend(string ExePath, string CMDLine)
+        public static IntPtr CreateNewProcessSuspend(string exePath, string cmdLine)
         {
-            bool retValue;
-            var Application = ExePath;
-            var CommandLine = CMDLine;
-            var pInfo = new PROCESS_INFORMATION();
-            var sInfo = new STARTUPINFO();
-            var pSec = new SECURITY_ATTRIBUTES();
-            var tSec = new SECURITY_ATTRIBUTES();
+            var application = exePath;
+            var commandLine = cmdLine;
+            ProcessInformation pInfo;
+            var sInfo = new Startupinfo();
+            var pSec = new SecurityAttributes();
+            var tSec = new SecurityAttributes();
             pSec.nLength = Marshal.SizeOf(pSec);
             tSec.nLength = Marshal.SizeOf(tSec);
 
             //Open Notepad
-            retValue = CreateProcess(Application, CommandLine,
-                ref pSec, ref tSec, false, (uint) CreateProcessFlags.CREATE_SUSPENDED,
+            CreateProcess(application, commandLine,
+                ref pSec, ref tSec, false, (uint)CreateProcessFlags.CreateSuspended,
                 IntPtr.Zero, null, ref sInfo, out pInfo);
 
             return pInfo.hProcess;
@@ -80,7 +78,7 @@ namespace XenoCoreZ_Trainer_API
 
             foreach (ProcessThread pT in process.Threads)
             {
-                var pOpenThread = OpenThread(ThreadAccess.SUSPEND_RESUME, false, (uint) pT.Id);
+                var pOpenThread = OpenThread(ThreadAccess.SuspendResume, false, (uint)pT.Id);
 
                 if (pOpenThread == IntPtr.Zero)
                 {
@@ -112,7 +110,7 @@ namespace XenoCoreZ_Trainer_API
 
             foreach (ProcessThread pT in process.Threads)
             {
-                var pOpenThread = OpenThread(ThreadAccess.SUSPEND_RESUME, false, (uint) pT.Id);
+                var pOpenThread = OpenThread(ThreadAccess.SuspendResume, false, (uint)pT.Id);
 
                 if (pOpenThread == IntPtr.Zero)
                 {
@@ -134,17 +132,17 @@ namespace XenoCoreZ_Trainer_API
 
             foreach (ProcessThread pT in process.Threads)
             {
-                var pOpenThread = OpenThread(ThreadAccess.SUSPEND_RESUME, false, (uint) pT.Id);
+                var pOpenThread = OpenThread(ThreadAccess.SuspendResume, false, (uint)pT.Id);
 
                 if (pOpenThread == IntPtr.Zero)
                 {
                     continue;
                 }
 
-                var suspendCount = 0;
+                int suspendCount;
                 do
                 {
-                    suspendCount = (int) ResumeThread(pOpenThread);
+                    suspendCount = (int)ResumeThread(pOpenThread);
                 } while (suspendCount > 0);
 
                 CloseHandle(pOpenThread);
@@ -170,17 +168,17 @@ namespace XenoCoreZ_Trainer_API
 
             foreach (ProcessThread pT in process.Threads)
             {
-                var pOpenThread = OpenThread(ThreadAccess.SUSPEND_RESUME, false, (uint) pT.Id);
+                var pOpenThread = OpenThread(ThreadAccess.SuspendResume, false, (uint)pT.Id);
 
                 if (pOpenThread == IntPtr.Zero)
                 {
                     continue;
                 }
 
-                var suspendCount = 0;
+                int suspendCount;
                 do
                 {
-                    suspendCount = (int) ResumeThread(pOpenThread);
+                    suspendCount = (int)ResumeThread(pOpenThread);
                 } while (suspendCount > 0);
 
                 CloseHandle(pOpenThread);
@@ -188,7 +186,7 @@ namespace XenoCoreZ_Trainer_API
         }
 
         [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-        private struct STARTUPINFO
+        private struct Startupinfo
         {
             public readonly int cb;
             public readonly string lpReserved;
@@ -211,7 +209,7 @@ namespace XenoCoreZ_Trainer_API
         }
 
         [StructLayout(LayoutKind.Sequential)]
-        private struct PROCESS_INFORMATION
+        private struct ProcessInformation
         {
             public readonly IntPtr hProcess;
             public readonly IntPtr hThread;
@@ -220,7 +218,7 @@ namespace XenoCoreZ_Trainer_API
         }
 
         [StructLayout(LayoutKind.Sequential)]
-        private struct SECURITY_ATTRIBUTES
+        private struct SecurityAttributes
         {
             public int nLength;
             public readonly unsafe byte* lpSecurityDescriptor;
@@ -230,50 +228,50 @@ namespace XenoCoreZ_Trainer_API
         [Flags]
         private enum CreateProcessFlags : uint
         {
-            DEBUG_PROCESS = 0x00000001,
-            DEBUG_ONLY_THIS_PROCESS = 0x00000002,
-            CREATE_SUSPENDED = 0x00000004,
-            DETACHED_PROCESS = 0x00000008,
-            CREATE_NEW_CONSOLE = 0x00000010,
-            NORMAL_PRIORITY_CLASS = 0x00000020,
-            IDLE_PRIORITY_CLASS = 0x00000040,
-            HIGH_PRIORITY_CLASS = 0x00000080,
-            REALTIME_PRIORITY_CLASS = 0x00000100,
-            CREATE_NEW_PROCESS_GROUP = 0x00000200,
-            CREATE_UNICODE_ENVIRONMENT = 0x00000400,
-            CREATE_SEPARATE_WOW_VDM = 0x00000800,
-            CREATE_SHARED_WOW_VDM = 0x00001000,
-            CREATE_FORCEDOS = 0x00002000,
-            BELOW_NORMAL_PRIORITY_CLASS = 0x00004000,
-            ABOVE_NORMAL_PRIORITY_CLASS = 0x00008000,
-            INHERIT_PARENT_AFFINITY = 0x00010000,
-            INHERIT_CALLER_PRIORITY = 0x00020000,
-            CREATE_PROTECTED_PROCESS = 0x00040000,
-            EXTENDED_STARTUPINFO_PRESENT = 0x00080000,
-            PROCESS_MODE_BACKGROUND_BEGIN = 0x00100000,
-            PROCESS_MODE_BACKGROUND_END = 0x00200000,
-            CREATE_BREAKAWAY_FROM_JOB = 0x01000000,
-            CREATE_PRESERVE_CODE_AUTHZ_LEVEL = 0x02000000,
-            CREATE_DEFAULT_ERROR_MODE = 0x04000000,
-            CREATE_NO_WINDOW = 0x08000000,
-            PROFILE_USER = 0x10000000,
-            PROFILE_KERNEL = 0x20000000,
-            PROFILE_SERVER = 0x40000000,
-            CREATE_IGNORE_SYSTEM_DEFAULT = 0x80000000
+            DebugProcess = 0x00000001,
+            DebugOnlyThisProcess = 0x00000002,
+            CreateSuspended = 0x00000004,
+            DetachedProcess = 0x00000008,
+            CreateNewConsole = 0x00000010,
+            NormalPriorityClass = 0x00000020,
+            IdlePriorityClass = 0x00000040,
+            HighPriorityClass = 0x00000080,
+            RealtimePriorityClass = 0x00000100,
+            CreateNewProcessGroup = 0x00000200,
+            CreateUnicodeEnvironment = 0x00000400,
+            CreateSeparateWowVdm = 0x00000800,
+            CreateSharedWowVdm = 0x00001000,
+            CreateForcedos = 0x00002000,
+            BelowNormalPriorityClass = 0x00004000,
+            AboveNormalPriorityClass = 0x00008000,
+            InheritParentAffinity = 0x00010000,
+            InheritCallerPriority = 0x00020000,
+            CreateProtectedProcess = 0x00040000,
+            ExtendedStartupinfoPresent = 0x00080000,
+            ProcessModeBackgroundBegin = 0x00100000,
+            ProcessModeBackgroundEnd = 0x00200000,
+            CreateBreakawayFromJob = 0x01000000,
+            CreatePreserveCodeAuthzLevel = 0x02000000,
+            CreateDefaultErrorMode = 0x04000000,
+            CreateNoWindow = 0x08000000,
+            ProfileUser = 0x10000000,
+            ProfileKernel = 0x20000000,
+            ProfileServer = 0x40000000,
+            CreateIgnoreSystemDefault = 0x80000000
         }
 
         [Flags]
         private enum ThreadAccess
         {
-            TERMINATE = 0x0001,
-            SUSPEND_RESUME = 0x0002,
-            GET_CONTEXT = 0x0008,
-            SET_CONTEXT = 0x0010,
-            SET_INFORMATION = 0x0020,
-            QUERY_INFORMATION = 0x0040,
-            SET_THREAD_TOKEN = 0x0080,
-            IMPERSONATE = 0x0100,
-            DIRECT_IMPERSONATION = 0x0200
+            Terminate = 0x0001,
+            SuspendResume = 0x0002,
+            GetContext = 0x0008,
+            SetContext = 0x0010,
+            SetInformation = 0x0020,
+            QueryInformation = 0x0040,
+            SetThreadToken = 0x0080,
+            Impersonate = 0x0100,
+            DirectImpersonation = 0x0200
         }
     }
 }
