@@ -1,13 +1,15 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows.Forms;
+using static System.String;
 
 namespace XenoCoreZ_Trainer_API
 {
-    internal class MemoryAPIv1
+    internal class MemoryApIv1
     {
         [Flags]
         public enum ProcessAccessFlags : uint
@@ -28,7 +30,7 @@ namespace XenoCoreZ_Trainer_API
         }
 
         [StructLayout(LayoutKind.Sequential)]
-        public struct MEMORY_BASIC_INFORMATION
+        public struct MemoryBasicInformation
         {
             public IntPtr BaseAddress;
             public IntPtr AllocationBase;
@@ -39,10 +41,10 @@ namespace XenoCoreZ_Trainer_API
             public uint Type;
         }
 
-        private List<MEMORY_BASIC_INFORMATION> MemoryRegion { get; set; }
+        private List<MemoryBasicInformation> MemoryRegion { get; set; }
 
         [DllImport("User32.dll")]
-        public static extern Int32 FindWindow(String lpClassName, String lpWindowName);
+        public static extern int FindWindow(string lpClassName, string lpWindowName);
 
         [DllImport("kernel32.dll")]
         public static extern IntPtr OpenProcess(ProcessAccessFlags processAccess, bool bInheritHandle, int processId);
@@ -54,7 +56,7 @@ namespace XenoCoreZ_Trainer_API
         public static extern bool WriteProcessMemory(IntPtr hProcess, IntPtr lpBaseAddress, IntPtr lpBuffer, int nSize, out IntPtr lpNumberOfBytesWritten);
 
         [DllImport("kernel32.dll", SetLastError = true)]
-        public static extern Int32 ReadProcessMemory(IntPtr hProcess, IntPtr lpBaseAddress, [Out] byte[] buffer, UInt32 size, out IntPtr lpNumberOfBytesRead);
+        public static extern int ReadProcessMemory(IntPtr hProcess, IntPtr lpBaseAddress, [Out] byte[] buffer, uint size, out IntPtr lpNumberOfBytesRead);
 
         [DllImport("kernel32.dll")]
         public static extern bool VirtualProtectEx(IntPtr hProcess, IntPtr lpAddress, UIntPtr dwSize, uint flNewProtect, out uint lpflOldProtect);
@@ -63,42 +65,42 @@ namespace XenoCoreZ_Trainer_API
         public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
 
         [DllImport("kernel32.dll")]
-        public static extern int VirtualQueryEx(IntPtr hProcess, IntPtr lpAddress, out MEMORY_BASIC_INFORMATION lpBuffer, int dwLength);
+        public static extern int VirtualQueryEx(IntPtr hProcess, IntPtr lpAddress, out MemoryBasicInformation lpBuffer, int dwLength);
 
         private void MemInfo(IntPtr pHandle)
         {
-            IntPtr Addy = new IntPtr();
+            IntPtr addy = new IntPtr();
             while (true)
             {
-                MEMORY_BASIC_INFORMATION MemInfo = new MEMORY_BASIC_INFORMATION();
-                int MemDump = VirtualQueryEx(pHandle, Addy, out MemInfo, Marshal.SizeOf(MemInfo));
-                if (MemDump == 0) break;
-                if ((MemInfo.State & 0x1000) != 0 && (MemInfo.Protect & 0x100) == 0)
-                    MemoryRegion.Add(MemInfo);
-                Addy = new IntPtr(MemInfo.BaseAddress.ToInt32() + (int)MemInfo.RegionSize);
+                MemoryBasicInformation memInfo = new MemoryBasicInformation();
+                int memDump = VirtualQueryEx(pHandle, addy, out memInfo, Marshal.SizeOf(memInfo));
+                if (memDump == 0) break;
+                if ((memInfo.State & 0x1000) != 0 && (memInfo.Protect & 0x100) == 0)
+                    MemoryRegion.Add(memInfo);
+                addy = new IntPtr(memInfo.BaseAddress.ToInt32() + (int)memInfo.RegionSize);
             }
         }
 
         private IntPtr Scan(byte[] sIn, byte[] sFor)
         {
-            int[] sBytes = new int[256]; int Pool = 0;
-            int End = sFor.Length - 1;
+            int[] sBytes = new int[256]; int pool = 0;
+            int end = sFor.Length - 1;
             for (int i = 0; i < 256; i++)
                 sBytes[i] = sFor.Length;
-            for (int i = 0; i < End; i++)
-                sBytes[sFor[i]] = End - i;
-            while (Pool <= sIn.Length - sFor.Length)
+            for (int i = 0; i < end; i++)
+                sBytes[sFor[i]] = end - i;
+            while (pool <= sIn.Length - sFor.Length)
             {
-                for (int i = End; sIn[Pool + i] == sFor[i]; i--)
-                    if (i == 0) return new IntPtr(Pool);
-                Pool += sBytes[sIn[Pool + End]];
+                for (int i = end; sIn[pool + i] == sFor[i]; i--)
+                    if (i == 0) return new IntPtr(pool);
+                pool += sBytes[sIn[pool + end]];
             }
             return IntPtr.Zero;
         }
 
-        private bool isValid()
+        private bool IsValid()
         {
-            if (hProcess == IntPtr.Zero)
+            if (_hProcess == IntPtr.Zero)
             {
                 return false;
             }
@@ -106,32 +108,27 @@ namespace XenoCoreZ_Trainer_API
         }
 
         //Required Variable
-        private static uint PID = 0;
+        private static uint _pid;
 
-        private static int WindowHandle = 0;
-        private static IntPtr hProcess = IntPtr.Zero;
-        private static string PGameWindowTitle;
-        private static string PGameExecutable;
-        private static string PModuleName;
+        private static IntPtr _hProcess = IntPtr.Zero;
+        private static string _pModuleName;
 
         //Constructor
-        public MemoryAPIv1(string GameWindowTitle, string GameExecutable, string ModuleName)
+        public MemoryApIv1(string gameWindowTitle, string gameExecutable, string moduleName)
         {
-            PGameWindowTitle = GameWindowTitle;
-            PGameExecutable = GameExecutable;
-            PModuleName = ModuleName;
+            _pModuleName = moduleName;
 
             //Predefined Initializing
-            WindowHandle = FindWindow(null, GameWindowTitle);
+            var windowHandle = FindWindow(null, gameWindowTitle);
 
-            if (WindowHandle == 0)
+            if (windowHandle == 0)
             {
-                foreach (Process P in Process.GetProcessesByName(GameExecutable))
+                foreach (Process p in Process.GetProcessesByName(gameExecutable))
                 {
-                    PID = (uint)P.Id;
+                    _pid = (uint)p.Id;
                     break;
                 }
-                if (PID == 0)
+                if (_pid == 0)
                 {
                     MessageBox.Show("Game not found...\n\nReason: PID=0");
                     return;
@@ -139,28 +136,25 @@ namespace XenoCoreZ_Trainer_API
             }
             else
             {
-                GetWindowThreadProcessId((IntPtr)WindowHandle, out PID);
+                GetWindowThreadProcessId((IntPtr)windowHandle, out _pid);
             }
-            hProcess = GetBaseModule(ModuleName);
+            _hProcess = GetBaseModule(moduleName);
 
-            if (hProcess == IntPtr.Zero)
+            if (_hProcess == IntPtr.Zero)
             {
                 MessageBox.Show("Cant get process handle...\n\nReason: hProcess=0");
             }
         }
 
         //Functions
-        public IntPtr GetBaseModule(string ModuleName)
+        public IntPtr GetBaseModule(string moduleName)
         {
-            Process P = Process.GetProcessById((int)PID);
-            if (P != null)
+            Process p = Process.GetProcessById((int)_pid);
+            foreach (ProcessModule pm in p.Modules)
             {
-                foreach (ProcessModule pm in P.Modules)
+                if (CompareOrdinal(pm.ModuleName, moduleName) == 0)
                 {
-                    if (String.Compare(pm.ModuleName, ModuleName) == 0)
-                    {
-                        return pm.BaseAddress;
-                    }
+                    return pm.BaseAddress;
                 }
             }
             return IntPtr.Zero;
@@ -168,290 +162,258 @@ namespace XenoCoreZ_Trainer_API
 
         public IntPtr GetBaseModule()
         {
-            Process P = Process.GetProcessById((int)PID);
-            if (P != null)
+            Process p = Process.GetProcessById((int)_pid);
+            foreach (ProcessModule pm in p.Modules)
             {
-                foreach (ProcessModule pm in P.Modules)
+                if (Compare(pm.ModuleName, _pModuleName) == 0)
                 {
-                    if (String.Compare(pm.ModuleName, PModuleName) == 0)
-                    {
-                        return pm.BaseAddress;
-                    }
+                    return pm.BaseAddress;
                 }
             }
             return IntPtr.Zero;
         }
 
-        public IntPtr GetAddressPointer(IntPtr BaseAddress, int[] offsets)
+        public IntPtr GetAddressPointer(IntPtr baseAddress, int[] offsets)
         {
-            if (!isValid())
+            if (!IsValid())
             {
                 MessageBox.Show("Invalid hProcess/n/nReason: hProcess=0");
                 return IntPtr.Zero;
             }
-            IntPtr TempAddress = BaseAddress;
-            foreach (int myOffset in offsets)
-            {
-                TempAddress = (IntPtr)(ReadInt(TempAddress) + myOffset);
-            }
-            return TempAddress;
+            return offsets.Aggregate(baseAddress, (current, myOffset) => (IntPtr) (ReadInt(current) + myOffset));
         }
 
-        public bool WriteByteArray(IntPtr BaseAddress, byte[] NewVal)
+        public bool WriteByteArray(IntPtr baseAddress, byte[] newVal)
         {
-            if (!isValid())
+            if (!IsValid())
             {
                 MessageBox.Show("Invalid hProcess/n/nReason: hProcess=0");
                 return false;
             }
 
-            bool ReturnVal;
-
             IntPtr numWrite;
             uint oldProtect;
 
-            VirtualProtectEx(hProcess, BaseAddress, (UIntPtr)NewVal.Length, 0x40, out oldProtect); //0x40 = page execute read write
-            ReturnVal = WriteProcessMemory(hProcess, BaseAddress, NewVal, NewVal.Length, out numWrite);
-            VirtualProtectEx(hProcess, BaseAddress, (UIntPtr)NewVal.Length, oldProtect, out oldProtect);
+            VirtualProtectEx(_hProcess, baseAddress, (UIntPtr)newVal.Length, 0x40, out oldProtect); //0x40 = page execute read write
+            var returnVal = WriteProcessMemory(_hProcess, baseAddress, newVal, newVal.Length, out numWrite);
+            VirtualProtectEx(_hProcess, baseAddress, (UIntPtr)newVal.Length, oldProtect, out oldProtect);
 
-            return ReturnVal;
+            return returnVal;
         }
 
-        public bool WriteByteArrayPointer(IntPtr BaseAddress, int[] OffsetAddress, byte[] NewVal)
+        public bool WriteByteArrayPointer(IntPtr baseAddress, int[] offsetAddress, byte[] newVal)
         {
-            if (!isValid())
+            if (!IsValid())
             {
                 MessageBox.Show("Invalid hProcess/n/nReason: hProcess=0");
                 return false;
             }
 
-            bool ReturnVal;
-
             IntPtr numWrite;
             uint oldProtect;
 
-            IntPtr ActualAddress = GetAddressPointer(BaseAddress, OffsetAddress);
+            IntPtr actualAddress = GetAddressPointer(baseAddress, offsetAddress);
 
-            VirtualProtectEx(hProcess, ActualAddress, (UIntPtr)NewVal.Length, 0x40, out oldProtect); //0x40 = page execute read write
-            ReturnVal = WriteProcessMemory(hProcess, ActualAddress, NewVal, NewVal.Length, out numWrite);
-            VirtualProtectEx(hProcess, ActualAddress, (UIntPtr)NewVal.Length, oldProtect, out oldProtect);
+            VirtualProtectEx(_hProcess, actualAddress, (UIntPtr)newVal.Length, 0x40, out oldProtect); //0x40 = page execute read write
+            var returnVal = WriteProcessMemory(_hProcess, actualAddress, newVal, newVal.Length, out numWrite);
+            VirtualProtectEx(_hProcess, actualAddress, (UIntPtr)newVal.Length, oldProtect, out oldProtect);
 
-            return ReturnVal;
+            return returnVal;
         }
 
-        public bool WriteInt(IntPtr BaseAddress, int Val)
+        public bool WriteInt(IntPtr baseAddress, int val)
         {
-            if (!isValid())
+            if (!IsValid())
             {
                 MessageBox.Show("Invalid hProcess/n/nReason: hProcess=0");
                 return false;
             }
 
-            bool ReturnVal;
-
             IntPtr numWrite;
             uint oldProtect;
 
-            VirtualProtectEx(hProcess, BaseAddress, (UIntPtr)sizeof(int), 0x40, out oldProtect); //0x40 = page execute read write
-            ReturnVal = WriteProcessMemory(hProcess, BaseAddress, BitConverter.GetBytes(Val), sizeof(int), out numWrite);
-            VirtualProtectEx(hProcess, BaseAddress, (UIntPtr)sizeof(int), oldProtect, out oldProtect);
+            VirtualProtectEx(_hProcess, baseAddress, (UIntPtr)sizeof(int), 0x40, out oldProtect); //0x40 = page execute read write
+            var returnVal = WriteProcessMemory(_hProcess, baseAddress, BitConverter.GetBytes(val), sizeof(int), out numWrite);
+            VirtualProtectEx(_hProcess, baseAddress, (UIntPtr)sizeof(int), oldProtect, out oldProtect);
 
-            return ReturnVal;
+            return returnVal;
         }
 
-        public bool WriteIntPointer(IntPtr BaseAddress, int[] OffsetAddress, int Val)
+        public bool WriteIntPointer(IntPtr baseAddress, int[] offsetAddress, int val)
         {
-            if (!isValid())
+            if (!IsValid())
             {
                 MessageBox.Show("Invalid hProcess/n/nReason: hProcess=0");
                 return false;
             }
 
-            bool ReturnVal;
-
             IntPtr numWrite;
             uint oldProtect;
 
-            IntPtr ActualAddress = GetAddressPointer(BaseAddress, OffsetAddress);
+            IntPtr actualAddress = GetAddressPointer(baseAddress, offsetAddress);
 
-            VirtualProtectEx(hProcess, ActualAddress, (UIntPtr)sizeof(int), 0x40, out oldProtect); //0x40 = page execute read write
-            ReturnVal = WriteProcessMemory(hProcess, ActualAddress, BitConverter.GetBytes(Val), sizeof(int), out numWrite);
-            VirtualProtectEx(hProcess, ActualAddress, (UIntPtr)sizeof(int), oldProtect, out oldProtect);
+            VirtualProtectEx(_hProcess, actualAddress, (UIntPtr)sizeof(int), 0x40, out oldProtect); //0x40 = page execute read write
+            var returnVal = WriteProcessMemory(_hProcess, actualAddress, BitConverter.GetBytes(val), sizeof(int), out numWrite);
+            VirtualProtectEx(_hProcess, actualAddress, (UIntPtr)sizeof(int), oldProtect, out oldProtect);
 
-            return ReturnVal;
+            return returnVal;
         }
 
-        public bool WriteDouble(IntPtr BaseAddress, double Val)
+        public bool WriteDouble(IntPtr baseAddress, double val)
         {
-            if (!isValid())
+            if (!IsValid())
             {
                 MessageBox.Show("Invalid hProcess/n/nReason: hProcess=0");
                 return false;
             }
 
-            bool ReturnVal;
-
             IntPtr numWrite;
             uint oldProtect;
 
-            VirtualProtectEx(hProcess, BaseAddress, (UIntPtr)sizeof(double), 0x40, out oldProtect); //0x40 = page execute read write
-            ReturnVal = WriteProcessMemory(hProcess, BaseAddress, BitConverter.GetBytes(Val), sizeof(double), out numWrite);
-            VirtualProtectEx(hProcess, BaseAddress, (UIntPtr)sizeof(double), oldProtect, out oldProtect);
+            VirtualProtectEx(_hProcess, baseAddress, (UIntPtr)sizeof(double), 0x40, out oldProtect); //0x40 = page execute read write
+            var returnVal = WriteProcessMemory(_hProcess, baseAddress, BitConverter.GetBytes(val), sizeof(double), out numWrite);
+            VirtualProtectEx(_hProcess, baseAddress, (UIntPtr)sizeof(double), oldProtect, out oldProtect);
 
-            return ReturnVal;
+            return returnVal;
         }
 
-        public bool WriteDoublePointer(IntPtr BaseAddress, int[] OffsetAddress, double Val)
+        public bool WriteDoublePointer(IntPtr baseAddress, int[] offsetAddress, double val)
         {
-            if (!isValid())
+            if (!IsValid())
             {
                 MessageBox.Show("Invalid hProcess/n/nReason: hProcess=0");
                 return false;
             }
 
-            bool ReturnVal;
-
             IntPtr numWrite;
             uint oldProtect;
 
-            IntPtr ActualAddress = GetAddressPointer(BaseAddress, OffsetAddress);
+            IntPtr actualAddress = GetAddressPointer(baseAddress, offsetAddress);
 
-            VirtualProtectEx(hProcess, ActualAddress, (UIntPtr)sizeof(double), 0x40, out oldProtect); //0x40 = page execute read write
-            ReturnVal = WriteProcessMemory(hProcess, ActualAddress, BitConverter.GetBytes(Val), sizeof(double), out numWrite);
-            VirtualProtectEx(hProcess, ActualAddress, (UIntPtr)sizeof(double), oldProtect, out oldProtect);
+            VirtualProtectEx(_hProcess, actualAddress, (UIntPtr)sizeof(double), 0x40, out oldProtect); //0x40 = page execute read write
+            var returnVal = WriteProcessMemory(_hProcess, actualAddress, BitConverter.GetBytes(val), sizeof(double), out numWrite);
+            VirtualProtectEx(_hProcess, actualAddress, (UIntPtr)sizeof(double), oldProtect, out oldProtect);
 
-            return ReturnVal;
+            return returnVal;
         }
 
-        public bool WriteFloat(IntPtr BaseAddress, float Val)
+        public bool WriteFloat(IntPtr baseAddress, float val)
         {
-            if (!isValid())
+            if (!IsValid())
             {
                 MessageBox.Show("Invalid hProcess/n/nReason: hProcess=0");
                 return false;
             }
 
-            bool ReturnVal;
-
             IntPtr numWrite;
             uint oldProtect;
 
-            VirtualProtectEx(hProcess, BaseAddress, (UIntPtr)sizeof(float), 0x40, out oldProtect); //0x40 = page execute read write
-            ReturnVal = WriteProcessMemory(hProcess, BaseAddress, BitConverter.GetBytes(Val), sizeof(float), out numWrite);
-            VirtualProtectEx(hProcess, BaseAddress, (UIntPtr)sizeof(float), oldProtect, out oldProtect);
+            VirtualProtectEx(_hProcess, baseAddress, (UIntPtr)sizeof(float), 0x40, out oldProtect); //0x40 = page execute read write
+            var returnVal = WriteProcessMemory(_hProcess, baseAddress, BitConverter.GetBytes(val), sizeof(float), out numWrite);
+            VirtualProtectEx(_hProcess, baseAddress, (UIntPtr)sizeof(float), oldProtect, out oldProtect);
 
-            return ReturnVal;
+            return returnVal;
         }
 
-        public bool WriteFloatPointer(IntPtr BaseAddress, int[] OffsetAddress, float Val)
+        public bool WriteFloatPointer(IntPtr baseAddress, int[] offsetAddress, float val)
         {
-            if (!isValid())
+            if (!IsValid())
             {
                 MessageBox.Show("Invalid hProcess/n/nReason: hProcess=0");
                 return false;
             }
 
-            bool ReturnVal;
-
             IntPtr numWrite;
             uint oldProtect;
 
-            IntPtr ActualAddress = GetAddressPointer(BaseAddress, OffsetAddress);
+            IntPtr actualAddress = GetAddressPointer(baseAddress, offsetAddress);
 
-            VirtualProtectEx(hProcess, ActualAddress, (UIntPtr)sizeof(float), 0x40, out oldProtect); //0x40 = page execute read write
-            ReturnVal = WriteProcessMemory(hProcess, ActualAddress, BitConverter.GetBytes(Val), sizeof(float), out numWrite);
-            VirtualProtectEx(hProcess, ActualAddress, (UIntPtr)sizeof(float), oldProtect, out oldProtect);
+            VirtualProtectEx(_hProcess, actualAddress, (UIntPtr)sizeof(float), 0x40, out oldProtect); //0x40 = page execute read write
+            var returnVal = WriteProcessMemory(_hProcess, actualAddress, BitConverter.GetBytes(val), sizeof(float), out numWrite);
+            VirtualProtectEx(_hProcess, actualAddress, (UIntPtr)sizeof(float), oldProtect, out oldProtect);
 
-            return ReturnVal;
+            return returnVal;
         }
 
-        public bool WriteStringA(IntPtr BaseAddress, string Val)
+        public bool WriteStringA(IntPtr baseAddress, string val)
         {
-            if (!isValid())
+            if (!IsValid())
             {
                 MessageBox.Show("Invalid hProcess/n/nReason: hProcess=0");
                 return false;
             }
 
-            bool ReturnVal;
-
             IntPtr numWrite;
             uint oldProtect;
 
-            VirtualProtectEx(hProcess, BaseAddress, (UIntPtr)sizeof(float), 0x40, out oldProtect); //0x40 = page execute read write
-            ReturnVal = WriteProcessMemory(hProcess, BaseAddress, Encoding.ASCII.GetBytes(Val), Encoding.ASCII.GetBytes(Val).Length, out numWrite);
-            VirtualProtectEx(hProcess, BaseAddress, (UIntPtr)sizeof(float), oldProtect, out oldProtect);
+            VirtualProtectEx(_hProcess, baseAddress, (UIntPtr)sizeof(float), 0x40, out oldProtect); //0x40 = page execute read write
+            var returnVal = WriteProcessMemory(_hProcess, baseAddress, Encoding.ASCII.GetBytes(val), Encoding.ASCII.GetBytes(val).Length, out numWrite);
+            VirtualProtectEx(_hProcess, baseAddress, (UIntPtr)sizeof(float), oldProtect, out oldProtect);
 
-            return ReturnVal;
+            return returnVal;
         }
 
-        public bool WriteStringAPointer(IntPtr BaseAddress, int[] OffsetAddress, string Val)
+        public bool WriteStringAPointer(IntPtr baseAddress, int[] offsetAddress, string val)
         {
-            if (!isValid())
+            if (!IsValid())
             {
                 MessageBox.Show("Invalid hProcess/n/nReason: hProcess=0");
                 return false;
             }
 
-            bool ReturnVal;
-
             IntPtr numWrite;
             uint oldProtect;
 
-            IntPtr ActualAddress = GetAddressPointer(BaseAddress, OffsetAddress);
+            IntPtr actualAddress = GetAddressPointer(baseAddress, offsetAddress);
 
-            VirtualProtectEx(hProcess, ActualAddress, (UIntPtr)sizeof(float), 0x40, out oldProtect); //0x40 = page execute read write
-            ReturnVal = WriteProcessMemory(hProcess, ActualAddress, Encoding.ASCII.GetBytes(Val), Encoding.ASCII.GetBytes(Val).Length, out numWrite);
-            VirtualProtectEx(hProcess, ActualAddress, (UIntPtr)sizeof(float), oldProtect, out oldProtect);
+            VirtualProtectEx(_hProcess, actualAddress, (UIntPtr)sizeof(float), 0x40, out oldProtect); //0x40 = page execute read write
+            var returnVal = WriteProcessMemory(_hProcess, actualAddress, Encoding.ASCII.GetBytes(val), Encoding.ASCII.GetBytes(val).Length, out numWrite);
+            VirtualProtectEx(_hProcess, actualAddress, (UIntPtr)sizeof(float), oldProtect, out oldProtect);
 
-            return ReturnVal;
+            return returnVal;
         }
 
-        public bool WriteStringW(IntPtr BaseAddress, string Val)
+        public bool WriteStringW(IntPtr baseAddress, string val)
         {
-            if (!isValid())
+            if (!IsValid())
             {
                 MessageBox.Show("Invalid hProcess/n/nReason: hProcess=0");
                 return false;
             }
 
-            bool ReturnVal;
-
             IntPtr numWrite;
             uint oldProtect;
 
-            VirtualProtectEx(hProcess, BaseAddress, (UIntPtr)sizeof(float), 0x40, out oldProtect); //0x40 = page execute read write
-            ReturnVal = WriteProcessMemory(hProcess, BaseAddress, Encoding.Unicode.GetBytes(Val), Encoding.Unicode.GetBytes(Val).Length, out numWrite);
-            VirtualProtectEx(hProcess, BaseAddress, (UIntPtr)sizeof(float), oldProtect, out oldProtect);
+            VirtualProtectEx(_hProcess, baseAddress, (UIntPtr)sizeof(float), 0x40, out oldProtect); //0x40 = page execute read write
+            var returnVal = WriteProcessMemory(_hProcess, baseAddress, Encoding.Unicode.GetBytes(val), Encoding.Unicode.GetBytes(val).Length, out numWrite);
+            VirtualProtectEx(_hProcess, baseAddress, (UIntPtr)sizeof(float), oldProtect, out oldProtect);
 
-            return ReturnVal;
+            return returnVal;
         }
 
-        public bool WriteStringWPointer(IntPtr BaseAddress, int[] OffsetAddress, string Val)
+        public bool WriteStringWPointer(IntPtr baseAddress, int[] offsetAddress, string val)
         {
-            if (!isValid())
+            if (!IsValid())
             {
                 MessageBox.Show("Invalid hProcess/n/nReason: hProcess=0");
                 return false;
             }
 
-            bool ReturnVal;
-
             IntPtr numWrite;
             uint oldProtect;
 
-            IntPtr ActualAddress = GetAddressPointer(BaseAddress, OffsetAddress);
+            IntPtr actualAddress = GetAddressPointer(baseAddress, offsetAddress);
 
-            VirtualProtectEx(hProcess, ActualAddress, (UIntPtr)sizeof(float), 0x40, out oldProtect); //0x40 = page execute read write
-            ReturnVal = WriteProcessMemory(hProcess, ActualAddress, Encoding.Unicode.GetBytes(Val), Encoding.Unicode.GetBytes(Val).Length, out numWrite);
-            VirtualProtectEx(hProcess, ActualAddress, (UIntPtr)sizeof(float), oldProtect, out oldProtect);
+            VirtualProtectEx(_hProcess, actualAddress, (UIntPtr)sizeof(float), 0x40, out oldProtect); //0x40 = page execute read write
+            var returnVal = WriteProcessMemory(_hProcess, actualAddress, Encoding.Unicode.GetBytes(val), Encoding.Unicode.GetBytes(val).Length, out numWrite);
+            VirtualProtectEx(_hProcess, actualAddress, (UIntPtr)sizeof(float), oldProtect, out oldProtect);
 
-            return ReturnVal;
+            return returnVal;
         }
 
-        public int ReadInt(IntPtr BaseAddress)
+        public int ReadInt(IntPtr baseAddress)
         {
-            if (!isValid())
+            if (!IsValid())
             {
                 MessageBox.Show("Invalid hProcess/n/nReason: hProcess=0");
                 return -1;
@@ -460,16 +422,16 @@ namespace XenoCoreZ_Trainer_API
             byte[] buffer = new byte[sizeof(int)];
             IntPtr numRead;
             uint oldProtect;
-            VirtualProtectEx(hProcess, BaseAddress, (UIntPtr)sizeof(int), 0x40, out oldProtect); //0x40 = page execute read write
-            int result = ReadProcessMemory(hProcess, BaseAddress, buffer, sizeof(int), out numRead);
-            VirtualProtectEx(hProcess, BaseAddress, (UIntPtr)sizeof(int), oldProtect, out oldProtect);
+            VirtualProtectEx(_hProcess, baseAddress, (UIntPtr)sizeof(int), 0x40, out oldProtect); //0x40 = page execute read write
+            ReadProcessMemory(_hProcess, baseAddress, buffer, sizeof(int), out numRead);
+            VirtualProtectEx(_hProcess, baseAddress, (UIntPtr)sizeof(int), oldProtect, out oldProtect);
 
             return BitConverter.ToInt32(buffer, 0);
         }
 
-        public int ReadIntPointer(IntPtr BaseAddress, int[] OffsetAddress)
+        public int ReadIntPointer(IntPtr baseAddress, int[] offsetAddress)
         {
-            if (!isValid())
+            if (!IsValid())
             {
                 MessageBox.Show("Invalid hProcess/n/nReason: hProcess=0");
                 return -1;
@@ -479,18 +441,18 @@ namespace XenoCoreZ_Trainer_API
             IntPtr numRead;
             uint oldProtect;
 
-            IntPtr ActualAddress = GetAddressPointer(BaseAddress, OffsetAddress);
+            IntPtr actualAddress = GetAddressPointer(baseAddress, offsetAddress);
 
-            VirtualProtectEx(hProcess, ActualAddress, (UIntPtr)sizeof(int), 0x40, out oldProtect); //0x40 = page execute read write
-            int result = ReadProcessMemory(hProcess, ActualAddress, buffer, sizeof(int), out numRead);
-            VirtualProtectEx(hProcess, ActualAddress, (UIntPtr)sizeof(int), oldProtect, out oldProtect);
+            VirtualProtectEx(_hProcess, actualAddress, (UIntPtr)sizeof(int), 0x40, out oldProtect); //0x40 = page execute read write
+            ReadProcessMemory(_hProcess, actualAddress, buffer, sizeof(int), out numRead);
+            VirtualProtectEx(_hProcess, actualAddress, (UIntPtr)sizeof(int), oldProtect, out oldProtect);
 
             return BitConverter.ToInt32(buffer, 0);
         }
 
-        public double ReadDouble(IntPtr BaseAddress)
+        public double ReadDouble(IntPtr baseAddress)
         {
-            if (!isValid())
+            if (!IsValid())
             {
                 MessageBox.Show("Invalid hProcess/n/nReason: hProcess=0");
                 return -1;
@@ -499,16 +461,16 @@ namespace XenoCoreZ_Trainer_API
             byte[] buffer = new byte[sizeof(double)];
             IntPtr numRead;
             uint oldProtect;
-            VirtualProtectEx(hProcess, BaseAddress, (UIntPtr)sizeof(double), 0x40, out oldProtect); //0x40 = page execute read write
-            double result = ReadProcessMemory(hProcess, BaseAddress, buffer, sizeof(double), out numRead);
-            VirtualProtectEx(hProcess, BaseAddress, (UIntPtr)sizeof(double), oldProtect, out oldProtect);
+            VirtualProtectEx(_hProcess, baseAddress, (UIntPtr)sizeof(double), 0x40, out oldProtect); //0x40 = page execute read write
+            ReadProcessMemory(_hProcess, baseAddress, buffer, sizeof(double), out numRead);
+            VirtualProtectEx(_hProcess, baseAddress, (UIntPtr)sizeof(double), oldProtect, out oldProtect);
 
             return BitConverter.ToDouble(buffer, 0);
         }
 
-        public double ReadDoublePointer(IntPtr BaseAddress, int[] OffsetAddress)
+        public double ReadDoublePointer(IntPtr baseAddress, int[] offsetAddress)
         {
-            if (!isValid())
+            if (!IsValid())
             {
                 MessageBox.Show("Invalid hProcess/n/nReason: hProcess=0");
                 return -1;
@@ -518,18 +480,18 @@ namespace XenoCoreZ_Trainer_API
             IntPtr numRead;
             uint oldProtect;
 
-            IntPtr ActualAddress = GetAddressPointer(BaseAddress, OffsetAddress);
+            IntPtr actualAddress = GetAddressPointer(baseAddress, offsetAddress);
 
-            VirtualProtectEx(hProcess, ActualAddress, (UIntPtr)sizeof(double), 0x40, out oldProtect); //0x40 = page execute read write
-            double result = ReadProcessMemory(hProcess, ActualAddress, buffer, sizeof(double), out numRead);
-            VirtualProtectEx(hProcess, ActualAddress, (UIntPtr)sizeof(double), oldProtect, out oldProtect);
+            VirtualProtectEx(_hProcess, actualAddress, (UIntPtr)sizeof(double), 0x40, out oldProtect); //0x40 = page execute read write
+            ReadProcessMemory(_hProcess, actualAddress, buffer, sizeof(double), out numRead);
+            VirtualProtectEx(_hProcess, actualAddress, (UIntPtr)sizeof(double), oldProtect, out oldProtect);
 
             return BitConverter.ToDouble(buffer, 0);
         }
 
-        public float ReadFloat(IntPtr BaseAddress)
+        public float ReadFloat(IntPtr baseAddress)
         {
-            if (!isValid())
+            if (!IsValid())
             {
                 MessageBox.Show("Invalid hProcess/n/nReason: hProcess=0");
                 return -1;
@@ -538,16 +500,16 @@ namespace XenoCoreZ_Trainer_API
             byte[] buffer = new byte[sizeof(float)];
             IntPtr numRead;
             uint oldProtect;
-            VirtualProtectEx(hProcess, BaseAddress, (UIntPtr)sizeof(float), 0x40, out oldProtect); //0x40 = page execute read write
-            float result = ReadProcessMemory(hProcess, BaseAddress, buffer, sizeof(float), out numRead);
-            VirtualProtectEx(hProcess, BaseAddress, (UIntPtr)sizeof(float), oldProtect, out oldProtect);
+            VirtualProtectEx(_hProcess, baseAddress, (UIntPtr)sizeof(float), 0x40, out oldProtect); //0x40 = page execute read write
+            ReadProcessMemory(_hProcess, baseAddress, buffer, sizeof(float), out numRead);
+            VirtualProtectEx(_hProcess, baseAddress, (UIntPtr)sizeof(float), oldProtect, out oldProtect);
 
             return BitConverter.ToSingle(buffer, 0);
         }
 
-        public float ReadFloatPointer(IntPtr BaseAddress, int[] OffsetAddress)
+        public float ReadFloatPointer(IntPtr baseAddress, int[] offsetAddress)
         {
-            if (!isValid())
+            if (!IsValid())
             {
                 MessageBox.Show("Invalid hProcess/n/nReason: hProcess=0");
                 return -1;
@@ -557,73 +519,73 @@ namespace XenoCoreZ_Trainer_API
             IntPtr numRead;
             uint oldProtect;
 
-            IntPtr ActualAddress = GetAddressPointer(BaseAddress, OffsetAddress);
+            IntPtr actualAddress = GetAddressPointer(baseAddress, offsetAddress);
 
-            VirtualProtectEx(hProcess, ActualAddress, (UIntPtr)sizeof(float), 0x40, out oldProtect); //0x40 = page execute read write
-            float result = ReadProcessMemory(hProcess, ActualAddress, buffer, sizeof(float), out numRead);
-            VirtualProtectEx(hProcess, ActualAddress, (UIntPtr)sizeof(float), oldProtect, out oldProtect);
+            VirtualProtectEx(_hProcess, actualAddress, (UIntPtr)sizeof(float), 0x40, out oldProtect); //0x40 = page execute read write
+            ReadProcessMemory(_hProcess, actualAddress, buffer, sizeof(float), out numRead);
+            VirtualProtectEx(_hProcess, actualAddress, (UIntPtr)sizeof(float), oldProtect, out oldProtect);
 
             return BitConverter.ToSingle(buffer, 0);
         }
 
-        public byte[] ReadBytes(IntPtr BaseAddress, int Size)
+        public byte[] ReadBytes(IntPtr baseAddress, int size)
         {
-            if (!isValid())
+            if (!IsValid())
             {
                 MessageBox.Show("Invalid hProcess/n/nReason: hProcess=0");
                 return null;
             }
 
-            byte[] buffer = new byte[Size];
+            byte[] buffer = new byte[size];
             IntPtr numRead;
             uint oldProtect;
-            VirtualProtectEx(hProcess, BaseAddress, (UIntPtr)Size, 0x40, out oldProtect); //0x40 = page execute read write
-            float result = ReadProcessMemory(hProcess, BaseAddress, buffer, (uint)Size, out numRead);
-            VirtualProtectEx(hProcess, BaseAddress, (UIntPtr)Size, oldProtect, out oldProtect);
+            VirtualProtectEx(_hProcess, baseAddress, (UIntPtr)size, 0x40, out oldProtect); //0x40 = page execute read write
+            ReadProcessMemory(_hProcess, baseAddress, buffer, (uint)size, out numRead);
+            VirtualProtectEx(_hProcess, baseAddress, (UIntPtr)size, oldProtect, out oldProtect);
 
             return buffer;
         }
 
-        public byte[] ReadBytesPointer(IntPtr BaseAddress, int[] OffsetAddress, int Size)
+        public byte[] ReadBytesPointer(IntPtr baseAddress, int[] offsetAddress, int size)
         {
-            if (!isValid())
+            if (!IsValid())
             {
                 MessageBox.Show("Invalid hProcess/n/nReason: hProcess=0");
                 return null;
             }
 
-            byte[] buffer = new byte[Size];
+            byte[] buffer = new byte[size];
             IntPtr numRead;
             uint oldProtect;
 
-            IntPtr ActualAddress = GetAddressPointer(BaseAddress, OffsetAddress);
+            IntPtr actualAddress = GetAddressPointer(baseAddress, offsetAddress);
 
-            VirtualProtectEx(hProcess, ActualAddress, (UIntPtr)Size, 0x40, out oldProtect); //0x40 = page execute read write
-            float result = ReadProcessMemory(hProcess, ActualAddress, buffer, (uint)Size, out numRead);
-            VirtualProtectEx(hProcess, ActualAddress, (UIntPtr)Size, oldProtect, out oldProtect);
+            VirtualProtectEx(_hProcess, actualAddress, (UIntPtr)size, 0x40, out oldProtect); //0x40 = page execute read write
+            ReadProcessMemory(_hProcess, actualAddress, buffer, (uint)size, out numRead);
+            VirtualProtectEx(_hProcess, actualAddress, (UIntPtr)size, oldProtect, out oldProtect);
 
             return buffer;
         }
 
-        public IntPtr AobScan(byte[] Pattern)
+        public IntPtr AobScan(byte[] pattern)
         {
-            if (!isValid())
+            if (!IsValid())
             {
                 MessageBox.Show("Invalid hProcess/n/nReason: hProcess=0");
                 return IntPtr.Zero;
             }
 
-            MemoryRegion = new List<MEMORY_BASIC_INFORMATION>();
-            MemInfo(hProcess);
-            IntPtr temp = IntPtr.Zero;
+            MemoryRegion = new List<MemoryBasicInformation>();
+            MemInfo(_hProcess);
             for (int i = 0; i < MemoryRegion.Count; i++)
             {
                 byte[] buff = new byte[MemoryRegion[i].RegionSize];
-                ReadProcessMemory(hProcess, MemoryRegion[i].BaseAddress, buff, MemoryRegion[i].RegionSize, out temp);
+                IntPtr temp;
+                ReadProcessMemory(_hProcess, MemoryRegion[i].BaseAddress, buff, MemoryRegion[i].RegionSize, out temp);
 
-                IntPtr Result = Scan(buff, Pattern);
-                if (Result != IntPtr.Zero)
-                    return new IntPtr(MemoryRegion[i].BaseAddress.ToInt32() + Result.ToInt32());
+                IntPtr result = Scan(buff, pattern);
+                if (result != IntPtr.Zero)
+                    return new IntPtr(MemoryRegion[i].BaseAddress.ToInt32() + result.ToInt32());
             }
             return IntPtr.Zero;
         }

@@ -6,7 +6,7 @@ using System.Runtime.InteropServices;
 
 namespace XenoCoreZ_Trainer_API
 {
-    public class AOBScanExAPIv1
+    public class AobScanExApIv1
     {
         /// USAGE
         ///
@@ -38,28 +38,28 @@ namespace XenoCoreZ_Trainer_API
         ///
         ///     The memory dumped from the external process.
         /// </summary>
-        private byte[] m_vDumpedRegion;
+        private byte[] _mVDumpedRegion;
 
         /// <summary>
         /// m_vProcess
         ///
         ///     The process we want to read the memory of.
         /// </summary>
-        private Process m_vProcess;
+        private Process _mVProcess;
 
         /// <summary>
         /// m_vAddress
         ///
         ///     The starting address we want to begin reading at.
         /// </summary>
-        private IntPtr m_vAddress;
+        private IntPtr _mVAddress;
 
         /// <summary>
         /// m_vSize
         ///
         ///     The number of bytes we wish to read from the process.
         /// </summary>
-        private Int32 m_vSize;
+        private int _mVSize;
 
         #region "sigScan Class Construction"
 
@@ -70,12 +70,12 @@ namespace XenoCoreZ_Trainer_API
         ///     Simply initializes the class properties and
         ///     expects the user to set them later.
         /// </summary>
-        public AOBScanExAPIv1()
+        public AobScanExApIv1()
         {
-            this.m_vProcess = null;
-            this.m_vAddress = IntPtr.Zero;
-            this.m_vSize = 0;
-            this.m_vDumpedRegion = null;
+            _mVProcess = null;
+            _mVAddress = IntPtr.Zero;
+            _mVSize = 0;
+            _mVDumpedRegion = null;
         }
 
         /// <summary>
@@ -87,11 +87,11 @@ namespace XenoCoreZ_Trainer_API
         /// <param name="proc">The process to dump the memory from.</param>
         /// <param name="addr">The started address to begin the dump.</param>
         /// <param name="size">The size of the dump.</param>
-        public AOBScanExAPIv1(Process proc, IntPtr addr, int size)
+        public AobScanExApIv1(Process proc, IntPtr addr, int size)
         {
-            this.m_vProcess = proc;
-            this.m_vAddress = addr;
-            this.m_vSize = size;
+            _mVProcess = proc;
+            _mVAddress = addr;
+            _mVSize = size;
         }
 
         #endregion "sigScan Class Construction"
@@ -110,27 +110,27 @@ namespace XenoCoreZ_Trainer_API
             try
             {
                 // Checks to ensure we have valid data.
-                if (this.m_vProcess == null)
+                if (_mVProcess == null)
                     return false;
-                if (this.m_vProcess.HasExited)
+                if (_mVProcess.HasExited)
                     return false;
-                if (this.m_vAddress == IntPtr.Zero)
+                if (_mVAddress == IntPtr.Zero)
                     return false;
-                if (this.m_vSize == 0)
+                if (_mVSize == 0)
                     return false;
 
                 // Create the region space to dump into.
-                this.m_vDumpedRegion = new byte[this.m_vSize];
+                _mVDumpedRegion = new byte[_mVSize];
 
                 int nBytesRead;
 
                 // Dump the memory.
                 var ret = ReadProcessMemory(
-                    this.m_vProcess.Handle, this.m_vAddress, this.m_vDumpedRegion, this.m_vSize, out nBytesRead
+                    _mVProcess.Handle, _mVAddress, _mVDumpedRegion, _mVSize, out nBytesRead
                     );
 
                 // Validation checks.
-                return ret && nBytesRead == this.m_vSize;
+                return ret && nBytesRead == _mVSize;
             }
             catch (Exception)
             {
@@ -152,7 +152,7 @@ namespace XenoCoreZ_Trainer_API
         private bool MaskCheck(int nOffset, IEnumerable<byte> btPattern, string strMask)
         {
             // Loop the pattern and compare to the mask and dump.
-            return !btPattern.Where((t, x) => strMask[x] != '?' && ((strMask[x] == 'x') && (t != this.m_vDumpedRegion[nOffset + x]))).Any();
+            return !btPattern.Where((t, x) => strMask[x] != '?' && ((strMask[x] == 'x') && (t != _mVDumpedRegion[nOffset + x]))).Any();
 
             // The loop was successful so we found the pattern.
         }
@@ -177,9 +177,9 @@ namespace XenoCoreZ_Trainer_API
             try
             {
                 // Dump the memory region if we have not dumped it yet.
-                if (this.m_vDumpedRegion == null || this.m_vDumpedRegion.Length == 0)
+                if (_mVDumpedRegion == null || _mVDumpedRegion.Length == 0)
                 {
-                    if (!this.DumpMemory())
+                    if (!DumpMemory())
                         return IntPtr.Zero;
                 }
 
@@ -188,12 +188,12 @@ namespace XenoCoreZ_Trainer_API
                     return IntPtr.Zero;
 
                 // Loop the region and look for the pattern.
-                for (int x = 0; x < this.m_vDumpedRegion.Length; x++)
+                for (int x = 0; x < _mVDumpedRegion.Length; x++)
                 {
-                    if (this.MaskCheck(x, btPattern, strMask))
+                    if (MaskCheck(x, btPattern, strMask))
                     {
                         // The pattern was found, return it.
-                        return new IntPtr((int)this.m_vAddress + (x + nOffset));
+                        return new IntPtr((int)_mVAddress + (x + nOffset));
                     }
                 }
 
@@ -214,7 +214,7 @@ namespace XenoCoreZ_Trainer_API
         /// </summary>
         public void ResetRegion()
         {
-            this.m_vDumpedRegion = null;
+            _mVDumpedRegion = null;
         }
 
         #endregion "sigScan Class Public Methods"
@@ -223,20 +223,20 @@ namespace XenoCoreZ_Trainer_API
 
         public Process Process
         {
-            get { return this.m_vProcess; }
-            set { this.m_vProcess = value; }
+            get { return _mVProcess; }
+            set { _mVProcess = value; }
         }
 
         public IntPtr Address
         {
-            get { return this.m_vAddress; }
-            set { this.m_vAddress = value; }
+            get { return _mVAddress; }
+            set { _mVAddress = value; }
         }
 
-        public Int32 Size
+        public int Size
         {
-            get { return this.m_vSize; }
-            set { this.m_vSize = value; }
+            get { return _mVSize; }
+            set { _mVSize = value; }
         }
 
         #endregion "sigScan Class Properties"
